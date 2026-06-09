@@ -58,8 +58,8 @@ optimizer = torch.optim.SGD(
 # training and evaluating the model
 train_losses = []
 test_losses = []
-for t in range(epochs):
-    print(f"\nEpoch {t+1}\n------------")
+for epoch in range(epochs):
+    print(f"\nEpoch {epoch+1}\n------------")
 
     # training
     train_loss = unet.train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
@@ -71,6 +71,20 @@ for t in range(epochs):
 
     # logging
     print(f"\nAvg. train loss={train_loss:.6f}\nAvg. test loss={test_loss:.6f}\n", flush=True)
+
+    # saving model checkpoints
+    if not os.path.exists(f"{data_root_filepath}/checkpoints"):
+        os.makedirs(f"{data_root_filepath}/checkpoints")
+
+    torch.save({
+            "epoch":epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "train_loss": train_loss,
+            "test_loss": test_loss
+        },
+            f"{data_root_filepath}/checkpoints/checkpoint_{epoch}.pth"
+    )
 
 #### LOGGING ####
 if not os.path.exists(f"{data_root_filepath}/logs"):
