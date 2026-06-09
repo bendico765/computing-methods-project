@@ -5,6 +5,7 @@ import pydicom as dicom
 import pandas as pd
 import numpy as np
 import utils
+import metrics
 import cbis
 import unet
 import skimage
@@ -12,6 +13,7 @@ import scipy
 import matplotlib.pyplot as plt
 import argparse
 import os
+from datetime import datetime
 
 # picking device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,10 +29,23 @@ args = parser.parse_args()
 
 data_root_filepath = args.data_root_filepath
 
+# save configuration for the current run
+run_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+if not os.path.exists(f"{data_root_filepath}/runs"):
+    os.makedirs(f"{data_root_filepath}/runs")
+
+if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
+    os.makedirs(f"{data_root_filepath}/runs/{run_name}")
+
 # Hyperparameters
 learning_rate = args.lr
 batch_size = args.batch_size
 epochs = args.epochs
+
+print(f"\nConfiguration------------")
+print(f"Learning rate:{learning_rate}")
+print(f"Batch size:{batch_size}")
+print(f"Epochs:{epochs}")
 
 # defyning transforms to augment data
 train_transforms = test_transforms = transforms_v2.Compose(
@@ -47,7 +62,7 @@ train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
 # defyning loss function
-loss_fn = unet.dice_loss
+loss_fn = metrics.dice_loss
 
 # creating model
 model = unet.UNet(n_class=2)
@@ -77,8 +92,8 @@ for epoch in range(epochs):
     print(f"\nAvg. train loss={train_loss:.6f}\nAvg. test loss={test_loss:.6f}\n", flush=True)
 
     # saving model checkpoints
-    if not os.path.exists(f"{data_root_filepath}/checkpoints"):
-        os.makedirs(f"{data_root_filepath}/checkpoints")
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/checkpoints"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/checkpoints")
 
     torch.save({
             "epoch":epoch,
@@ -90,12 +105,12 @@ for epoch in range(epochs):
             "train_loss": train_loss,
             "test_loss": test_loss
         },
-            f"{data_root_filepath}/checkpoints/checkpoint_{epoch}.pth"
+            f"{data_root_filepath}/runs/{run_name}/checkpoints/checkpoint_{epoch}.pth"
     )
 
 #### LOGGING ####
-if not os.path.exists(f"{data_root_filepath}/logs"):
-    os.makedirs(f"{data_root_filepath}/logs")
+if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
+    os.makedirs(f"{data_root_filepath}/runs/{run_name}/logs")
 
 # saving up the loss history
 history = pd.DataFrame({
@@ -103,4 +118,4 @@ history = pd.DataFrame({
     "train_loss": train_losses,
     "test_loss": test_losses
 })
-history.to_csv(f"{data_root_filepath}/logs/loss_history.csv", index=False)
+history.to_csv(f"{data_root_filepath}/runs/{run_name}/logs/loss_history.csv", index=False)

@@ -18,6 +18,8 @@ class CBIS_Dataset(Dataset):
             lesions_df = lesions_df[lesions_df["training or test"] == "training"]
         else:
             lesions_df = lesions_df[lesions_df["training or test"] == "Test"]
+
+        lesions_df = lesions_df.head(10)
         
         self.images = []
         self.masks = []
