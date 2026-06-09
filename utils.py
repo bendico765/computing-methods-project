@@ -3,7 +3,6 @@ import scipy
 import pandas as pd
 import torch
 import skimage
-from torch.utils.data import DataLoader, Dataset
 
 def crop_to_mask(image, mask, padding=20):
     # Find nonzero coordinates
@@ -44,55 +43,6 @@ def preprocess_image(image: np.array, mask: np.array, padding: int = 20) -> np.a
     preproc_image = skimage.transform.resize(preproc_image, IMAGE_TARGET_SHAPE) 
 
     return preproc_image
-
-class CBIS_Dataset(Dataset):
-    def __init__(self, data_root_filepath, train, transform=None):
-        self.transform = transform
-        lesions_df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
-        
-        # keeping only MLO and masses
-        lesions_df = lesions_df[
-            (lesions_df["image view"] == "MLO") & 
-            (lesions_df["kind"] == "Mass")
-        ]
-        
-        # based on parameter, keep only training or test instances
-        if train:
-            lesions_df = lesions_df[lesions_df["training or test"] == "training"]
-        else:
-            lesions_df = lesions_df[lesions_df["training or test"] == "Test"]
-
-        self.lesions_df = lesions_df.head(10) # <= RICORDARSI DI TOGLIERE QUESTO
-        
-        self.images = []
-        self.masks = []
-        
-        # load and preprocess the lesions
-        for index, row in self.lesions_df.iterrows():
-            image_tensor = torch.load(
-                f"{data_root_filepath}/" + row["preprocessed fullimage tensor filepath"],
-                weights_only=True
-            ).float()
-            mask_tensor = torch.load(
-                f"{data_root_filepath}/" + row["preprocessed mask tensor filepath"],
-                weights_only=True
-            ).float()
-
-            self.images.append(image_tensor)
-            self.masks.append(mask_tensor)
-            
-        self.n_elements = len(self.images)
-    
-    def __len__(self):
-        return self.n_elements
-
-    def __getitem__(self, idx):
-        image, mask = self.images[idx], self.masks[idx]
-
-        if self.transform:
-            image = self.transform(image)
-
-        return image, mask
 
 def preprocess_mask(image: np.array, mask: np.array, padding: int = 20) -> np.array:
     MASK_TARGET_SHAPE = (512, 512)

@@ -231,9 +231,10 @@ class UNet(nn.Module):
     """
     
 def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
-    size = len(dataloader.dataset)
-    
     model.train() # set the model to training mode
+    
+    size = len(dataloader.dataset)
+    total_loss = 0
     for batch, (X,y) in enumerate(dataloader):
         X = X.to(device)
         y = y.to(device)
@@ -246,16 +247,18 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
         loss.backward() # backpropagate the prediction loss
         optimizer.step() # adjust the parameters by the gradients collected in the backward pass
         optimizer.zero_grad() # reset the gradients of model parameters
-        
+
         loss, current = loss.item(), batch * batch_size + len(X)
-        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        total_loss += loss
+        
+        print(f"loss: {loss:>6f}  [{current:>5d}/{size:>5d}]")
+
+    return total_loss/len(dataloader)
 
 def test_loop(dataloader, model, loss_fn, device="cpu"):
     model.eval() # set model to evaluation mode
-    size = len(dataloader.dataset)
-    num_batches = len(dataloader)
-    test_loss = 0
     
+    test_loss = 0
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
@@ -264,5 +267,4 @@ def test_loop(dataloader, model, loss_fn, device="cpu"):
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
     
-    test_loss /= num_batches
-    print(f"Test Error: \n Avg loss: {test_loss:>8f} \n")
+    return test_loss / len(dataloader) # return average on the batches
