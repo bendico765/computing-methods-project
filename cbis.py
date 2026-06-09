@@ -3,29 +3,13 @@ import torch
 import pandas as pd
 
 class CBIS_Dataset(Dataset):
-    def __init__(self, data_root_filepath, train, transform=None):
+    def __init__(self, data_root_filepath: str, df: pd.DataFrame, transform=None):
         self.transform = transform
-        lesions_df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
-        
-        # keeping only MLO and masses
-        lesions_df = lesions_df[
-            (lesions_df["image view"] == "MLO") & 
-            (lesions_df["kind"] == "Mass")
-        ]
-        
-        # based on parameter, keep only training or test instances
-        if train:
-            lesions_df = lesions_df[lesions_df["training or test"] == "training"]
-        else:
-            lesions_df = lesions_df[lesions_df["training or test"] == "Test"]
-
-        lesions_df = lesions_df.head(10)
-        
         self.images = []
         self.masks = []
         
         # load and preprocess the lesions
-        for index, row in lesions_df.iterrows():
+        for index, row in df.iterrows():
             image_tensor = torch.load(
                 f"{data_root_filepath}/" + row["preprocessed fullimage tensor filepath"],
                 weights_only=True

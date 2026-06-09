@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 from datetime import datetime
+from sklearn.model_selection import train_test_split
 
 # picking device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,6 +26,7 @@ parser.add_argument("data_root_filepath", help="Path to the project data root di
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--batch-size", type=int, default=20)
 parser.add_argument("--epochs", type=int, default=10)
+parser.add_argument("--random-state", type=int, default=None)
 args = parser.parse_args()
 
 data_root_filepath = args.data_root_filepath
@@ -42,6 +44,8 @@ learning_rate = args.lr
 batch_size = args.batch_size
 epochs = args.epochs
 
+random_state = args.random_state
+
 print(f"\nConfiguration------------")
 print(f"Learning rate:{learning_rate}")
 print(f"Batch size:{batch_size}")
@@ -54,12 +58,26 @@ train_transforms = test_transforms = transforms_v2.Compose(
     ]
 )
 
-# loading data
-train_data = cbis.CBIS_Dataset(data_root_filepath=data_root_filepath, train=True, transform=train_transforms)
-test_data = cbis.CBIS_Dataset(data_root_filepath=data_root_filepath, train=False, transform=test_transforms)
+### LOADING DATA
+df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
+
+# keeping only MLO and masses
+df = df[(df["image view"] == "MLO") & (df["kind"] == "Mass")]
+df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
+df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
+
+train_data = cbis.CBIS_Dataset(data_root_filepath, df_train)
+validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val)
+test_data = cbis.CBIS_Dataset(data_root_filepath, df_test)
 
 train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+
+print(f"\nData samples (70-20-10 split)------------")
+print(f"Training:{len(train_data)}")
+print(f"Validation:{len(validation_data)}")
+print(f"Test:{len(test_data)}")
 
 # defyning loss function
 loss_fn = metrics.dice_loss
@@ -74,7 +92,7 @@ optimizer = torch.optim.SGD(
     lr=learning_rate
 )
 
-# training and evaluating the model
+### TRAINING AND EVALUATING THE MODEL
 train_losses = []
 test_losses = []
 for epoch in range(epochs):
@@ -84,8 +102,8 @@ for epoch in range(epochs):
     train_loss = unet.train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
     train_losses.append(train_loss)
     
-    # testing
-    test_loss = unet.test_loop(test_dataloader, model, loss_fn, device)
+    # testing on validation
+    test_loss = unet.test_loop(validation_dataloader, model, loss_fn, device)
     test_losses.append(test_loss)
 
     # logging

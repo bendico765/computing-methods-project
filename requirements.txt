@@ -8,6 +8,7 @@ pandas
 matplotlib
 jupyter
 scikit-image
+scikit-learn
 pydicom
 nibabel
 notebook
