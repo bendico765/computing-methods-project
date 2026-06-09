@@ -20,13 +20,17 @@ print(f"Device:{device}")
 # path to the root folder of the data
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("data_root_filepath", help="Path to the project data root directory.")
+parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--batch-size", type=int, default=20)
+parser.add_argument("--epochs", type=int, default=10)
 args = parser.parse_args()
 
 data_root_filepath = args.data_root_filepath
 
-learning_rate = 5e-3
-batch_size = 20
-epochs = 10
+# Hyperparameters
+learning_rate = args.lr
+batch_size = args.batch_size
+epochs = args.epochs
 
 # defyning transforms to augment data
 train_transforms = test_transforms = transforms_v2.Compose(
@@ -80,6 +84,9 @@ for epoch in range(epochs):
             "epoch":epoch,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "epochs": epochs,
             "train_loss": train_loss,
             "test_loss": test_loss
         },
