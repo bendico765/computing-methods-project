@@ -54,7 +54,9 @@ print(f"Epochs:{epochs}")
 # defyning transforms to augment data
 train_transforms = test_transforms = transforms_v2.Compose(
     [
-        transforms_v2.RandomHorizontalFlip()
+        transforms_v2.RandomHorizontalFlip(),
+        transforms_v2.RandomVerticalFlip(),
+        transforms_v2.RandomRotation(degrees=(-270, 270))
     ]
 )
 
