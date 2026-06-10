@@ -106,6 +106,16 @@ for epoch in range(epochs):
     test_loss = unet.test_loop(validation_dataloader, model, loss_fn, device)
     test_losses.append(test_loss)
 
+    # each few epoch save some predicted samples
+    if epoch % 4 == 0:
+        utils.save_prediction(
+            model, 
+            validation_dataloader,
+            epoch, 
+            device,
+            f"{data_root_filepath}/runs/{run_name}/prediction_samples"
+        )
+
     # logging
     print(f"\nAvg. train loss={train_loss:.6f}\nAvg. test loss={test_loss:.6f}\n", flush=True)
 

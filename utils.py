@@ -3,6 +3,46 @@ import scipy
 import pandas as pd
 import torch
 import skimage
+import os
+import matplotlib.pyplot as plt
+
+def save_prediction(model, dataloader,epoch, device, output_dir, n_samples=3):
+    model.eval()
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    with torch.no_grad():
+        images, masks = next(iter(dataloader))
+
+        images = images.to(device)
+        outputs = model(images)
+
+        images = images.to("cpu")
+        outputs = outputs.to("cpu")
+
+        # number of samples to show minimum between n_samples and batch_size
+        n = min(n_samples, images.shape[0])
+
+        fig, axes = plt.subplots(n, 3, figsize=(12, 4*n))
+        for i in range(n):
+            # input image
+            axes[i,0].imshow(images[i,0], cmap="gray")
+            axes[i,0].set_title("Input")
+            axes[i,0].axis("off")
+
+            # ground truth
+            axes[i,1].imshow(masks[i,1], cmap="gray")
+            axes[i,1].set_title("Ground Truth")
+            axes[i,1].axis("off")
+
+            # prediction
+            axes[i,2].imshow(outputs[i,1], cmap="gray")
+            axes[i,2].set_title("Prediction")
+            axes[i,2].axis("off")
+
+        plt.tight_layout()
+        plt.savefig(f"{output_dir}/epoch_{epoch:03d}.png")
+        plt.close()
 
 def crop_to_mask(image, mask, padding=20):
     # Find nonzero coordinates
