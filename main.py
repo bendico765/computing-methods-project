@@ -63,7 +63,7 @@ train_transforms = test_transforms = transforms_v2.Compose(
 ### LOADING DATA
 df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
 
-# keeping only MLO and masses
+# keeping only masses
 df = df[df["kind"] == "Mass"]
 df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
 df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
@@ -94,9 +94,12 @@ optimizer = torch.optim.SGD(
     lr=learning_rate
 )
 
+# initializing early stopping
+early_stopper = EarlyStopping(patience=5, min_delta=0.001)
+
 ### TRAINING AND EVALUATING THE MODEL
 train_losses = []
-test_losses = []
+val_losses = []
 for epoch in range(epochs):
     print(f"\nEpoch {epoch+1}\n------------")
 
@@ -105,11 +108,11 @@ for epoch in range(epochs):
     train_losses.append(train_loss)
     
     # testing on validation
-    test_loss = unet.test_loop(validation_dataloader, model, loss_fn, device)
-    test_losses.append(test_loss)
+    val_loss = unet.test_loop(validation_dataloader, model, loss_fn, device)
+    val_losses.append(val_loss)
 
     # each few epoch save some predicted samples
-    if epoch % 2 == 0:
+    if epoch % 5 == 0:
         utils.save_prediction(
             model, 
             validation_dataloader,
@@ -119,7 +122,7 @@ for epoch in range(epochs):
         )
 
     # logging
-    print(f"\nAvg. train loss={train_loss:.6f}\nAvg. test loss={test_loss:.6f}\n", flush=True)
+    print(f"\nAvg. train loss={train_loss:.6f}\nAvg. val loss={val_loss:.6f}\n", flush=True)
 
     # saving model checkpoints
     if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/checkpoints"):
@@ -133,10 +136,29 @@ for epoch in range(epochs):
             "batch_size": batch_size,
             "epochs": epochs,
             "train_loss": train_loss,
-            "test_loss": test_loss
+            "val_loss": val_loss
         },
-            f"{data_root_filepath}/runs/{run_name}/checkpoints/checkpoint_{epoch}.pth"
+        f"{data_root_filepath}/runs/{run_name}/checkpoints/checkpoint_{epoch}.pth"
     )
+
+    # checking early stopping
+    early_stopper(val_loss, model)
+    if early_stopper.early_stop:
+        print("Early stopping triggered")
+        epochs = epoch
+        
+        # save best model
+        torch.save({
+            "epoch":epoch,
+            "model_state_dict": early_stopper.best_model_state_dict,
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "val_loss": early_stopper.best_loss
+            },
+            f"{data_root_filepath}/runs/{run_name}/checkpoints/best_model_checkpoint.pth"
+        )
+        break
 
 #### LOGGING ####
 if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
@@ -146,6 +168,6 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
 history = pd.DataFrame({
     "epoch": range(1, epochs+1),
     "train_loss": train_losses,
-    "test_loss": test_losses
+    "val_loss": val_losses
 })
 history.to_csv(f"{data_root_filepath}/runs/{run_name}/logs/loss_history.csv", index=False)

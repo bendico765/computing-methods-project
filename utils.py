@@ -6,6 +6,34 @@ import skimage
 import os
 import matplotlib.pyplot as plt
 
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=0):
+        """
+        Args:
+            patience (int): How many epochs to wait after last time validation loss improved.
+            min_delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+            checkpoint_path (str): Path to save the best model weights.
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.checkpoint_path = checkpoint_path
+        self.counter = 0
+        self.best_loss = float('inf')
+        self.best_model_state_dict = None
+        self.early_stop = False
+
+    def __call__(self, val_loss, model):
+        # Check if the validation loss improved significantly
+        if val_loss < (self.best_loss - self.min_delta):
+            self.best_loss = val_loss
+            self.counter = 0
+            # Save the best model state
+            self.best_model_state_dict = model.state_dict()
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+
 def save_prediction(model, dataloader, epoch, device, output_dir, n_samples=3):
     model.eval()
 
