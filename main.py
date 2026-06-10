@@ -80,7 +80,7 @@ print(f"Validation:{len(validation_data)}")
 print(f"Test:{len(test_data)}")
 
 # defyning loss function
-loss_fn = metrics.dice_loss
+loss_fn = metrics.DiceLoss()
 
 # creating model
 model = unet.UNet(n_class=2)
@@ -107,7 +107,7 @@ for epoch in range(epochs):
     test_losses.append(test_loss)
 
     # each few epoch save some predicted samples
-    if epoch % 4 == 0:
+    if epoch % 2 == 0:
         utils.save_prediction(
             model, 
             validation_dataloader,
