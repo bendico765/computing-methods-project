@@ -145,7 +145,7 @@ for epoch in range(epochs):
     early_stopper(val_loss, model)
     if early_stopper.early_stop:
         print("Early stopping triggered")
-        epochs = epoch
+        epochs = epoch+1
         
         # save best model
         torch.save({
@@ -166,7 +166,7 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
 
 # saving up the loss history
 history = pd.DataFrame({
-    "epoch": range(1, epochs+2),
+    "epoch": range(1, epochs+1),
     "train_loss": train_losses,
     "val_loss": val_losses
 })
