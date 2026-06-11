@@ -95,7 +95,7 @@ optimizer = torch.optim.SGD(
 )
 
 # initializing early stopping
-early_stopper = EarlyStopping(patience=5, min_delta=0.001)
+early_stopper = utils.EarlyStopping(patience=5, min_delta=0.001)
 
 ### TRAINING AND EVALUATING THE MODEL
 train_losses = []
@@ -166,7 +166,7 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
 
 # saving up the loss history
 history = pd.DataFrame({
-    "epoch": range(1, epochs+1),
+    "epoch": range(1, epochs+2),
     "train_loss": train_losses,
     "val_loss": val_losses
 })

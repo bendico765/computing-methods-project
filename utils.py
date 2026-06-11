@@ -16,7 +16,6 @@ class EarlyStopping:
         """
         self.patience = patience
         self.min_delta = min_delta
-        self.checkpoint_path = checkpoint_path
         self.counter = 0
         self.best_loss = float('inf')
         self.best_model_state_dict = None
