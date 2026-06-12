@@ -4,12 +4,14 @@ import torchvision.transforms.v2 as transforms_v2
 import pydicom as dicom
 import pandas as pd
 import numpy as np
+import optuna
 import utils
 import metrics
 import cbis
 import unet
 import skimage
 import scipy
+import engine
 import matplotlib.pyplot as plt
 import argparse
 import os
@@ -23,10 +25,11 @@ print(f"Device:{device}")
 # path to the root folder of the data
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("data_root_filepath", help="Path to the project data root directory.")
-parser.add_argument("--lr", type=float, default=1e-3)
-parser.add_argument("--batch-size", type=int, default=20)
-parser.add_argument("--epochs", type=int, default=10)
-parser.add_argument("--random-state", type=int, default=None)
+#parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--n-trials", type=int, default=10, help="Number of trials for hyperparameter optimization")
+parser.add_argument("--batch-size", type=int, default=20, help="Batch size for training")
+parser.add_argument("--epochs", type=int, default=10, help="Number of epochs for hyperparameter optimization and to re-train the final model")
+parser.add_argument("--random-state", type=int, default=None, help="Random state used for loading up data")
 args = parser.parse_args()
 
 data_root_filepath = args.data_root_filepath
@@ -39,15 +42,15 @@ if not os.path.exists(f"{data_root_filepath}/runs"):
 if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
     os.makedirs(f"{data_root_filepath}/runs/{run_name}")
 
-# Hyperparameters
-learning_rate = args.lr
+# Command-line parameters
+#learning_rate = args.lr
+n_trials = args.n_trials
 batch_size = args.batch_size
 epochs = args.epochs
-
 random_state = args.random_state
 
 print(f"\nConfiguration------------")
-print(f"Learning rate:{learning_rate}")
+#print(f"Learning rate:{learning_rate}")
 print(f"Batch size:{batch_size}")
 print(f"Epochs:{epochs}")
 
@@ -81,9 +84,28 @@ print(f"Training:{len(train_data)}")
 print(f"Validation:{len(validation_data)}")
 print(f"Test:{len(test_data)}")
 
-# defyning loss function
-loss_fn = metrics.DiceLoss()
+### HYPERPARAMETER OPTIMIZATION
+if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/trials"):
+    os.makedirs(f"{data_root_filepath}/runs/{run_name}/trials")
 
+# use optuna for hyperparameters optimization
+study = optuna.create_study(direction="minimize")
+study.optimize(
+    engine.Objective(
+        f"{data_root_filepath}/runs/{run_name}/trials",
+        train_dataloader, 
+        validation_dataloader, 
+        batch_size, 
+        epochs, 
+        device
+    ), 
+    n_trials=n_trials, 
+)  # Works flawless
+print(f"Best hyperparameters: {study.best_params}")
+
+### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
+
+"""    
 # creating model
 model = unet.UNet(n_class=2)
 model.to(device)
@@ -171,3 +193,4 @@ history = pd.DataFrame({
     "val_loss": val_losses
 })
 history.to_csv(f"{data_root_filepath}/runs/{run_name}/logs/loss_history.csv", index=False)
+"""
