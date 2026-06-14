@@ -1,18 +1,10 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms.v2 as transforms_v2
-import pydicom as dicom
 import pandas as pd
-import numpy as np
 import optuna
-import utils
-import metrics
 import cbis
-import unet
-import skimage
-import scipy
 import engine
-import matplotlib.pyplot as plt
 import argparse
 import os
 from datetime import datetime
@@ -100,11 +92,16 @@ study.optimize(
         device
     ), 
     n_trials=n_trials, 
-)  # Works flawless
+)
 print(f"Best hyperparameters: {study.best_params}")
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
-
+"""
+trainval_dataloader = DataLoader(
+    dataset=torch.utils.data.ConcatDataset([train_data, validation_data]),
+    batch_size=batch_size
+)
+"""
 """    
 # creating model
 model = unet.UNet(n_class=2)

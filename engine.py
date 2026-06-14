@@ -74,13 +74,13 @@ class Objective:
         model = unet.UNet(n_class=2)
         model.to(self.device)
         
-        # defyning optimizer
+        # defining optimizer
         optimizer = torch.optim.SGD(
             model.parameters(),
             lr=learning_rate
         )
     
-        # defyning loss function
+        # defining loss function
         loss_fn = metrics.DiceLoss()
     
         # initializing early stopping
@@ -115,6 +115,9 @@ class Objective:
                 print("Early stopping triggered")
                 self.epochs = epoch + 1
                 break
+
+        # saving the number of epochs performed (useful in case of early stopping)
+        trial.set_user_attr("epochs", self.epochs)
 
         ### LOGGING ###
         if not os.path.exists(f"{self.trial_folder_filepath}/{trial.number}/logs"):
