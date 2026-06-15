@@ -23,15 +23,26 @@ print(f"Device:{device}")
 # path to the root folder of the data
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("data_root_filepath", help="Path to the project data root directory.")
-#parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--n-trials", type=int, default=10, help="Number of trials for hyperparameter optimization")
 parser.add_argument("--batch-size", type=int, default=20, help="Batch size for training")
 parser.add_argument("--epochs", type=int, default=10, help="Number of epochs for hyperparameter optimization and to re-train the final model")
 parser.add_argument("--random-state", type=int, default=None, help="Random state used for loading up data")
-parser.add_argument("--test", action="store_true", help="Whether or not to retrain the best model on the test and validation set, and run it ont the test")
+parser.add_argument(
+    "--enable-optimization",
+    action="store_true",
+    help="Whether to optimize the model, or use the command-line provided arguments. If this flag is not specified, just use the command line arguments to train a model (on train and validation sets) and evaluate on the test set.")
+parser.add_argument("--test", action="store_true", help="Whether or not to retrain the best model on the test and validation set, and run it on the test")
 args = parser.parse_args()
 
+# Command-line parameters
 data_root_filepath = args.data_root_filepath
+learning_rate = args.lr
+n_trials = args.n_trials
+batch_size = args.batch_size
+epochs = args.epochs
+random_state = args.random_state
+enable_optimization = args.enable_optimization
 
 # save configuration for the current run
 run_name = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -41,19 +52,8 @@ if not os.path.exists(f"{data_root_filepath}/runs"):
 if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
     os.makedirs(f"{data_root_filepath}/runs/{run_name}")
 
-# Command-line parameters
-#learning_rate = args.lr
-n_trials = args.n_trials
-batch_size = args.batch_size
-epochs = args.epochs
-random_state = args.random_state
 
-print(f"\nConfiguration------------")
-#print(f"Learning rate:{learning_rate}")
-print(f"Batch size:{batch_size}")
-print(f"Epochs:{epochs}")
-
-# defyning transforms to augment data
+# defining transforms to augment data
 train_transforms = test_transforms = transforms_v2.Compose(
     [
         transforms_v2.RandomHorizontalFlip(),
@@ -78,36 +78,43 @@ train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-print(f"\nData samples (70-20-10 split)------------")
-print(f"Training:{len(train_data)}")
-print(f"Validation:{len(validation_data)}")
-print(f"Test:{len(test_data)}")
+print(f"\nData samples (70-20-10 split)------------", flush=True)
+print(f"Training:{len(train_data)}", flush=True)
+print(f"Validation:{len(validation_data)}", flush=True)
+print(f"Test:{len(test_data)}", flush=True)
 
 ### HYPERPARAMETER OPTIMIZATION
-if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/trials"):
-    os.makedirs(f"{data_root_filepath}/runs/{run_name}/trials")
+if enable_optimization:
+    print("\nOptimizing hyperparameters--------", flush=True)
 
-# use optuna for hyperparameters optimization
-study = optuna.create_study(direction="minimize")
-study.optimize(
-    engine.Objective(
-        f"{data_root_filepath}/runs/{run_name}/trials",
-        train_dataloader, 
-        validation_dataloader, 
-        batch_size, 
-        epochs, 
-        device
-    ), 
-    n_trials=n_trials, 
-)
+    # create directory to save the trials for the search
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/trials"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/trials")
 
-best_trial = study.best_trial
-print(f"Best hyperparameters: {study.best_params}", flush=True)
-print(f"User attrs: {study.best_trial.user_attrs}", flush=True)
+    # use optuna for hyperparameters optimization
+    study = optuna.create_study(direction="minimize")
+    study.optimize(
+        engine.Objective(
+            f"{data_root_filepath}/runs/{run_name}/trials",
+            train_dataloader,
+            validation_dataloader,
+            batch_size,
+            epochs,
+            device
+        ),
+        n_trials=n_trials,
+    )
+
+    best_trial = study.best_trial
+    print(f"Best hyperparameters: {study.best_params}", flush=True)
+    print(f"User attrs: {study.best_trial.user_attrs}", flush=True)
+
+    learning_rate = study.best_params["lr"]
+    epochs = best_trial.user_attrs["epochs"]
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
 if args.test:
-    print("\nRETRAIN OF THE BEST MODEL", flush=True)
+    print("\nTRAINING THE FINAL MODEL AND EVALUATING ON THE TEST SET", flush=True)
     # creating model
     model = unet.UNet(n_class=2)
     model.to(device)
@@ -115,7 +122,7 @@ if args.test:
     # defining optimizer
     optimizer = torch.optim.SGD(
         model.parameters(),
-        lr=study.best_params["lr"]
+        lr=learning_rate
     )
 
     # define loss
@@ -132,7 +139,7 @@ if args.test:
 
     ### TRAIN THE MODEL
     train_losses = []
-    for epoch in range(best_trial.user_attrs["epochs"]):
+    for epoch in range(epochs):
         print(f"\nEpoch {epoch + 1}\n------------", flush=True)
 
         # training
@@ -153,19 +160,19 @@ if args.test:
         print(f"\nAvg. train loss={train_loss:.6f}\n", flush=True)
 
         # saving model checkpoints
-        if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints"):
-            os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints")
+        if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_model/checkpoints"):
+            os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_model/checkpoints")
 
         torch.save({
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
-            "learning_rate": study.best_params["lr"],
+            "learning_rate": learning_rate,
             "batch_size": batch_size,
-            "epochs": best_trial.user_attrs["epochs"],
+            "epochs": epochs,
             "train_loss": train_loss
         },
-            f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints/checkpoint_{epoch}.pth"
+            f"{data_root_filepath}/runs/{run_name}/final_model/checkpoints/checkpoint_{epoch}.pth"
         )
 
     # Make inference on the test set
