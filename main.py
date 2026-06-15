@@ -79,8 +79,22 @@ if enable_optimization:
     train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, train_transforms)
     validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, validation_transforms)
 
-    train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(
+        train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    validation_dataloader = DataLoader(
+        validation_data,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True
+    )
 
     print(f"\nData samples (70-20-10 split)------------", flush=True)
     print(f"Training:{len(train_data)}", flush=True)
@@ -124,8 +138,22 @@ if args.test:
     trainval_data = cbis.CBIS_Dataset(data_root_filepath, df_train_val, transform=train_transforms)
     test_data = cbis.CBIS_Dataset(data_root_filepath, df_test)
 
-    trainval_dataloader = DataLoader(dataset=trainval_data, batch_size=batch_size, shuffle=True)
-    test_dataloader = DataLoader(dataset=test_data, batch_size=batch_size, shuffle=True)
+    trainval_dataloader = DataLoader(
+        dataset=trainval_data,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    test_dataloader = DataLoader(
+        dataset=test_data,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True
+    )
 
     print("\nTRAINING THE FINAL MODEL AND EVALUATING ON THE TEST SET", flush=True)
     print(f"\nData samples (90-10 split)------------", flush=True)
@@ -145,8 +173,8 @@ if args.test:
     # define loss
     loss_fn = metrics.DiceLoss()
 
-    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_retrain"):
-        os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_retrain")
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_model"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_model")
 
     ### TRAIN THE MODEL
     train_losses = []
