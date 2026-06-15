@@ -112,7 +112,7 @@ class Objective:
             # checking early stopping
             early_stopper(val_loss, model)
             if early_stopper.early_stop:
-                print("Early stopping triggered")
+                print("Early stopping triggered", flush=True)
                 self.epochs = epoch + 1
                 break
 
