@@ -32,6 +32,6 @@ class CBIS_Dataset(Dataset):
         )
 
         if self.transform:
-            image = self.transform(image)
+            image, mask = self.transform(image, mask)
 
         return image, mask
