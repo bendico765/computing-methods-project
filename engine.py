@@ -7,7 +7,14 @@ import pandas as pd
 import visualization
 import utils
 
-def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
+def train_loop(
+        dataloader,
+        model,
+        loss_fn,
+        optimizer,
+        batch_size,
+        device="cpu"
+    ):
     model.train() # set the model to training mode
     
     size = len(dataloader.dataset)
@@ -29,7 +36,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
         loss, current = loss.item(), batch * batch_size + len(X)
         total_loss += loss
         
-        print(f"loss: {loss:>6f}  [{current:>5d}/{size:>5d}]")
+        print(f"loss: {loss:>6f}  [{current:>5d}/{size:>5d}]", flush=True)
 
     return total_loss/len(dataloader)
 

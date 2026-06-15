@@ -54,7 +54,7 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
 
 
 # defining transforms to augment data
-train_transforms = test_transforms = transforms_v2.Compose(
+train_transforms = validation_transforms = transforms_v2.Compose(
     [
         transforms_v2.RandomHorizontalFlip(),
         transforms_v2.RandomVerticalFlip(),
@@ -67,24 +67,26 @@ df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
 
 # keeping only masses
 df = df[df["kind"] == "Mass"]
+
+# dividing data in test and train data
 df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
-df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
-
-train_data = cbis.CBIS_Dataset(data_root_filepath, df_train)
-validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val)
-test_data = cbis.CBIS_Dataset(data_root_filepath, df_test)
-
-train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
-test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
-
-print(f"\nData samples (70-20-10 split)------------", flush=True)
-print(f"Training:{len(train_data)}", flush=True)
-print(f"Validation:{len(validation_data)}", flush=True)
-print(f"Test:{len(test_data)}", flush=True)
 
 ### HYPERPARAMETER OPTIMIZATION
 if enable_optimization:
+    # divide data in training and validation set
+    df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
+
+    train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, train_transforms)
+    validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, validation_transforms)
+
+    train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
+
+    print(f"\nData samples (70-20-10 split)------------", flush=True)
+    print(f"Training:{len(train_data)}", flush=True)
+    print(f"Validation:{len(validation_data)}", flush=True)
+    print(f"Test:{len(df_test)}", flush=True)
+
     print("\nOptimizing hyperparameters--------", flush=True)
 
     # create directory to save the trials for the search
@@ -112,9 +114,24 @@ if enable_optimization:
     learning_rate = study.best_params["lr"]
     epochs = best_trial.user_attrs["epochs"]
 
+    del train_data
+    del validation_data
+    del df_train
+    del df_val
+
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
 if args.test:
+    trainval_data = cbis.CBIS_Dataset(data_root_filepath, df_train_val, transform=train_transforms)
+    test_data = cbis.CBIS_Dataset(data_root_filepath, df_test)
+
+    trainval_dataloader = DataLoader(dataset=trainval_data, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(dataset=test_data, batch_size=batch_size, shuffle=True)
+
     print("\nTRAINING THE FINAL MODEL AND EVALUATING ON THE TEST SET", flush=True)
+    print(f"\nData samples (90-10 split)------------", flush=True)
+    print(f"Training:{len(df_train_val)}", flush=True)
+    print(f"Test:{len(df_test)}", flush=True)
+
     # creating model
     model = unet.UNet(n_class=2)
     model.to(device)
@@ -128,12 +145,6 @@ if args.test:
     # define loss
     loss_fn = metrics.DiceLoss()
 
-    # merge train and validation sets
-    trainval_dataloader = DataLoader(
-        dataset=torch.utils.data.ConcatDataset([train_data, validation_data]),
-        batch_size=batch_size
-    )
-
     if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_retrain"):
         os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_retrain")
 
@@ -143,7 +154,7 @@ if args.test:
         print(f"\nEpoch {epoch + 1}\n------------", flush=True)
 
         # training
-        train_loss = engine.train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
+        train_loss = engine.train_loop(trainval_dataloader, model, loss_fn, optimizer, batch_size, device)
         train_losses.append(train_loss)
 
         # each few epoch save some predicted samples
