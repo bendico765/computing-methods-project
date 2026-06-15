@@ -59,7 +59,7 @@ train_transforms = test_transforms = transforms_v2.Compose(
 df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
 
 # keeping only masses
-df = df[df["kind"] == "Mass"]
+df = df[df["kind"] == "Mass"].head(10)
 df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
 df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
 
@@ -93,7 +93,7 @@ study.optimize(
     ), 
     n_trials=n_trials, 
 )
-print(f"Best hyperparameters: {study.best_params}")
+print(f"Best hyperparameters: {study.best_params}", flush=True)
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
 """

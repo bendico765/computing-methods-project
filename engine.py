@@ -4,6 +4,7 @@ import unet
 import metrics
 import os
 import pandas as pd
+import visualization
 import utils
 
 def train_loop(dataloader, model, loss_fn, optimizer, batch_size, device="cpu"):
@@ -68,7 +69,7 @@ class Objective:
             os.makedirs(f"{self.trial_folder_filepath}/{trial.number}")
 
         # setting hyperparameters range of values
-        learning_rate = trial.suggest_float("lr", 1e-4, 1e-1, log=True)
+        learning_rate = trial.suggest_float("lr", 1e-3, 1e-1, log=True)
         
         # creating model
         model = unet.UNet(n_class=2)
@@ -90,7 +91,7 @@ class Objective:
         train_losses = []
         val_losses = []
         for epoch in range(self.epochs):
-            print(f"\nEpoch {epoch+1}\n------------")
+            print(f"\nEpoch {epoch+1}\n------------", flush=True)
             
             # training
             train_loss = train_loop(
@@ -106,14 +107,53 @@ class Objective:
             # validation
             val_loss = test_loop(self.validation_dataloader, model, loss_fn, self.device)
             val_losses.append(val_loss)
-            
+
+            # each few epoch save some predicted samples
+            if epoch % 4 == 0:
+                utils.save_prediction(
+                    model,
+                    self.validation_dataloader,
+                    epoch,
+                    self.device,
+                    f"{self.trial_folder_filepath}/{trial.number}/figs/prediction_samples"
+                )
+
             print(f"\nAvg. train loss={train_loss:.6f}\nAvg. val loss={val_loss:.6f}\n", flush=True)
-    
+
+            # saving model checkpoints
+            if not os.path.exists(f"{self.trial_folder_filepath}/{trial.number}/checkpoints"):
+                os.makedirs(f"{self.trial_folder_filepath}/{trial.number}/checkpoints")
+
+            torch.save({
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "learning_rate": learning_rate,
+                "batch_size": self.batch_size,
+                "epochs": self.epochs,
+                "train_loss": train_loss,
+                "val_loss": val_loss
+            },
+                f"{self.trial_folder_filepath}/{trial.number}/checkpoints/checkpoint_{epoch}.pth"
+            )
+
             # checking early stopping
             early_stopper(val_loss, model)
             if early_stopper.early_stop:
                 print("Early stopping triggered", flush=True)
                 self.epochs = epoch + 1
+
+                # save best model
+                torch.save({
+                    "epoch": epoch,
+                    "model_state_dict": early_stopper.best_model_state_dict,
+                    "learning_rate": learning_rate,
+                    "batch_size": self.batch_size,
+                    "epochs": self.epochs,
+                    "val_loss": early_stopper.best_loss
+                },
+                    f"{self.trial_folder_filepath}/{trial.number}/checkpoints/best_model_checkpoint.pth"
+                )
                 break
 
         # saving the number of epochs performed (useful in case of early stopping)
@@ -130,5 +170,10 @@ class Objective:
             "val_loss": val_losses
         })
         history.to_csv(f"{self.trial_folder_filepath}/{trial.number}/logs/loss_history.csv", index=False)
+
+        # plotting loss history
+        if not os.path.exists(f"{self.trial_folder_filepath}/{trial.number}/figs"):
+            os.makedirs(f"{self.trial_folder_filepath}/{trial.number}/figs")
+        visualization.plot_losses(history, filepath=f"{self.trial_folder_filepath}/{trial.number}/figs/loss_history.png")
         
         return val_loss
