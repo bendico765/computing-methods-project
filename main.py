@@ -7,8 +7,14 @@ import cbis
 import engine
 import argparse
 import os
+import utils
 from datetime import datetime
+
+import metrics
+import unet
 from sklearn.model_selection import train_test_split
+
+import visualization
 
 # picking device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,6 +28,7 @@ parser.add_argument("--n-trials", type=int, default=10, help="Number of trials f
 parser.add_argument("--batch-size", type=int, default=20, help="Batch size for training")
 parser.add_argument("--epochs", type=int, default=10, help="Number of epochs for hyperparameter optimization and to re-train the final model")
 parser.add_argument("--random-state", type=int, default=None, help="Random state used for loading up data")
+parser.add_argument("--test", action="store_true", help="Whether or not to retrain the best model on the test and validation set, and run it ont the test")
 args = parser.parse_args()
 
 data_root_filepath = args.data_root_filepath
@@ -93,101 +100,80 @@ study.optimize(
     ), 
     n_trials=n_trials, 
 )
+
+best_trial = study.best_trial
 print(f"Best hyperparameters: {study.best_params}", flush=True)
+print(f"User attrs: {study.best_trial.user_attrs}", flush=True)
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
-"""
-trainval_dataloader = DataLoader(
-    dataset=torch.utils.data.ConcatDataset([train_data, validation_data]),
-    batch_size=batch_size
-)
-"""
-"""    
-# creating model
-model = unet.UNet(n_class=2)
-model.to(device)
+if args.test:
+    print("\nRETRAIN OF THE BEST MODEL", flush=True)
+    # creating model
+    model = unet.UNet(n_class=2)
+    model.to(device)
 
-# defyning optimizer
-optimizer = torch.optim.SGD(
-    model.parameters(),
-    lr=learning_rate
-)
-
-# initializing early stopping
-early_stopper = utils.EarlyStopping(patience=5, min_delta=0.001)
-
-### TRAINING AND EVALUATING THE MODEL
-train_losses = []
-val_losses = []
-for epoch in range(epochs):
-    print(f"\nEpoch {epoch+1}\n------------")
-
-    # training
-    train_loss = unet.train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
-    train_losses.append(train_loss)
-    
-    # testing on validation
-    val_loss = unet.test_loop(validation_dataloader, model, loss_fn, device)
-    val_losses.append(val_loss)
-
-    # each few epoch save some predicted samples
-    if epoch % 5 == 0:
-        utils.save_prediction(
-            model, 
-            validation_dataloader,
-            epoch, 
-            device,
-            f"{data_root_filepath}/runs/{run_name}/prediction_samples"
-        )
-
-    # logging
-    print(f"\nAvg. train loss={train_loss:.6f}\nAvg. val loss={val_loss:.6f}\n", flush=True)
-
-    # saving model checkpoints
-    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/checkpoints"):
-        os.makedirs(f"{data_root_filepath}/runs/{run_name}/checkpoints")
-
-    torch.save({
-            "epoch":epoch,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "learning_rate": learning_rate,
-            "batch_size": batch_size,
-            "epochs": epochs,
-            "train_loss": train_loss,
-            "val_loss": val_loss
-        },
-        f"{data_root_filepath}/runs/{run_name}/checkpoints/checkpoint_{epoch}.pth"
+    # defining optimizer
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=study.best_params["lr"]
     )
 
-    # checking early stopping
-    early_stopper(val_loss, model)
-    if early_stopper.early_stop:
-        print("Early stopping triggered")
-        epochs = epoch+1
-        
-        # save best model
+    # define loss
+    loss_fn = metrics.DiceLoss()
+
+    # merge train and validation sets
+    trainval_dataloader = DataLoader(
+        dataset=torch.utils.data.ConcatDataset([train_data, validation_data]),
+        batch_size=batch_size
+    )
+
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_retrain"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_retrain")
+
+    ### TRAIN THE MODEL
+    train_losses = []
+    for epoch in range(best_trial.user_attrs["epochs"]):
+        print(f"\nEpoch {epoch + 1}\n------------", flush=True)
+
+        # training
+        train_loss = engine.train_loop(train_dataloader, model, loss_fn, optimizer, batch_size, device)
+        train_losses.append(train_loss)
+
+        # each few epoch save some predicted samples
+        if epoch % 4 == 0:
+            utils.save_prediction(
+                model,
+                trainval_dataloader,
+                epoch,
+                device,
+                f"{data_root_filepath}/runs/{run_name}/prediction_samples"
+            )
+
+        # logging
+        print(f"\nAvg. train loss={train_loss:.6f}\n", flush=True)
+
+        # saving model checkpoints
+        if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints"):
+            os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints")
+
         torch.save({
-            "epoch":epoch,
-            "model_state_dict": early_stopper.best_model_state_dict,
-            "learning_rate": learning_rate,
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "learning_rate": study.best_params["lr"],
             "batch_size": batch_size,
-            "epochs": epochs,
-            "val_loss": early_stopper.best_loss
-            },
-            f"{data_root_filepath}/runs/{run_name}/checkpoints/best_model_checkpoint.pth"
+            "epochs": best_trial.user_attrs["epochs"],
+            "train_loss": train_loss
+        },
+            f"{data_root_filepath}/runs/{run_name}/final_retrain/checkpoints/checkpoint_{epoch}.pth"
         )
-        break
 
-#### LOGGING ####
-if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/logs"):
-    os.makedirs(f"{data_root_filepath}/runs/{run_name}/logs")
-
-# saving up the loss history
-history = pd.DataFrame({
-    "epoch": range(1, epochs+1),
-    "train_loss": train_losses,
-    "val_loss": val_losses
-})
-history.to_csv(f"{data_root_filepath}/runs/{run_name}/logs/loss_history.csv", index=False)
-"""
+    # Make inference on the test set
+    print("\nINFERENCE ON THE TEST SET", flush=True)
+    test_loss = engine.test_loop(
+        test_dataloader,
+        model,
+        loss_fn,
+        device
+    )
+    print(f"Test loss={test_loss:.6f}", flush=True)
