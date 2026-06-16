@@ -69,7 +69,7 @@ train_transforms = validation_transforms = transforms_v2.Compose(
 df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
 
 # keeping only masses
-df = df[df["kind"] == "Mass"]
+df = df[(df["kind"] == "Mass") & (df["image view"] == "MLO")]
 
 # dividing data in test and train data
 df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
