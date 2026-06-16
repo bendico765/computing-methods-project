@@ -9,12 +9,11 @@ import argparse
 import os
 import utils
 from datetime import datetime
+import visualization
 
 import metrics
 import unet
 from sklearn.model_selection import train_test_split
-
-import visualization
 
 # picking device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,36 +70,36 @@ df = df[df["kind"] == "Mass"]
 # dividing data in test and train data
 df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_state)
 
+# divide data in training and validation set
+df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
+
+train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, train_transforms)
+validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, validation_transforms)
+
+train_dataloader = DataLoader(
+    train_data,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=4,
+    pin_memory=True,
+    persistent_workers=True
+)
+validation_dataloader = DataLoader(
+    validation_data,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=4,
+    pin_memory=True,
+    persistent_workers=True
+)
+
+print(f"\nData samples (70-20-10 split)------------", flush=True)
+print(f"Training:{len(df_train)}", flush=True)
+print(f"Validation:{len(df_val)}", flush=True)
+print(f"Test:{len(df_test)}", flush=True)
+
 ### HYPERPARAMETER OPTIMIZATION
 if enable_optimization:
-    # divide data in training and validation set
-    df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
-
-    train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, train_transforms)
-    validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, validation_transforms)
-
-    train_dataloader = DataLoader(
-        train_data,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=4,
-        pin_memory=True,
-        persistent_workers=True
-    )
-    validation_dataloader = DataLoader(
-        validation_data,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=4,
-        pin_memory=True,
-        persistent_workers=True
-    )
-
-    print(f"\nData samples (70-20-10 split)------------", flush=True)
-    print(f"Training:{len(train_data)}", flush=True)
-    print(f"Validation:{len(validation_data)}", flush=True)
-    print(f"Test:{len(df_test)}", flush=True)
-
     print("\nOptimizing hyperparameters--------", flush=True)
 
     # create directory to save the trials for the search
@@ -125,13 +124,134 @@ if enable_optimization:
     print(f"Best hyperparameters: {study.best_params}", flush=True)
     print(f"User attrs: {study.best_trial.user_attrs}", flush=True)
 
+    # save up the best hyperparameters
     learning_rate = study.best_params["lr"]
     epochs = best_trial.user_attrs["epochs"]
+else:
+    # just use train and validation set using the command line provided arguments
+    print("\nTraining on train set and evaluating on validation set--------", flush=True)
 
-    del train_data
-    del validation_data
-    del df_train
-    del df_val
+    # creating model
+    model = unet.UNet(n_class=2)
+    model.to(device)
+
+    # defining optimizer
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=learning_rate
+    )
+
+    # define loss
+    loss_fn = metrics.DiceLoss()
+
+    # initializing early stopping
+    early_stopper = utils.EarlyStopping(patience=5, min_delta=0.001)
+
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/model"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/model")
+
+    ### TRAIN THE MODEL
+    train_losses = []
+    val_losses = []
+    for epoch in range(epochs):
+        print(f"\nEpoch {epoch + 1}\n------------", flush=True)
+
+        # training
+        train_loss = engine.train_loop(
+            train_dataloader,
+            model,
+            loss_fn,
+            optimizer,
+            batch_size,
+            device
+        )
+        train_losses.append(train_loss)
+
+        # validation
+        val_loss = engine.test_loop(
+            validation_dataloader,
+            model,
+            loss_fn,
+            device
+        )
+        val_losses.append(val_loss)
+
+        # each few epoch save some predicted samples
+        if epoch % 4 == 0:
+            utils.save_prediction(
+                model,
+                validation_dataloader,
+                loss_fn,
+                epoch,
+                device,
+                f"{data_root_filepath}/runs/{run_name}/model/prediction_samples"
+            )
+
+        # logging
+        print(f"\nAvg. train loss={train_loss:.6f}\nAvg. val loss={val_loss:.6f}\n", flush=True)
+
+        # saving model checkpoints
+        if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/model/checkpoints"):
+            os.makedirs(f"{data_root_filepath}/runs/{run_name}/model/checkpoints")
+
+        torch.save({
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "train_loss": train_loss
+        },
+            f"{data_root_filepath}/runs/{run_name}/model/checkpoints/checkpoint_{epoch}.pth"
+        )
+
+        # checking early stopping
+        early_stopper(val_loss, model)
+        if early_stopper.early_stop:
+            print("Early stopping triggered", flush=True)
+            epochs = epoch + 1
+
+            # save best model
+            torch.save({
+                "epoch": epoch,
+                "model_state_dict": early_stopper.best_model_state_dict,
+                "learning_rate": learning_rate,
+                "batch_size": batch_size,
+                "epochs": epochs,
+                "val_loss": early_stopper.best_loss
+            },
+            f"{data_root_filepath}/runs/{run_name}/model/checkpoints/best_model_checkpoint.pth"
+            )
+            break
+
+    ### LOGGING ###
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/model/logs"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/model/logs")
+
+    # saving up the loss history
+    history = pd.DataFrame({
+        "epoch": range(1, epochs + 1),
+        "train_loss": train_losses,
+        "val_loss": val_losses
+    })
+    history.to_csv(f"{data_root_filepath}/runs/{run_name}/model/logs/loss_history.csv", index=False)
+
+    # plotting loss history
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/model/figs"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/model/figs")
+    visualization.plot_losses(
+        history,
+        filepath=f"{data_root_filepath}/runs/{run_name}/model/figs/loss_history.png"
+    )
+
+# delete train and validation data to save up some space
+del train_dataloader
+del train_data
+del df_train
+del validation_dataloader
+del validation_data
+del df_val
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
 if args.test:
@@ -193,7 +313,7 @@ if args.test:
                 loss_fn,
                 epoch,
                 device,
-                f"{data_root_filepath}/runs/{run_name}/prediction_samples"
+                f"{data_root_filepath}/runs/{run_name}/final_model/prediction_samples"
             )
 
         # logging
