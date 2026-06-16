@@ -8,8 +8,8 @@ class DiceLoss(nn.Module):
 
     def forward(self, target: torch.Tensor, pred: torch.Tensor):
         """
-        target: one-hot encoded masks, shape (B, 2, W, H)
         pred: softmax probabilities, shape (B, 2, W, H)
+        target: one-hot encoded masks, shape (B, 2, W, H)
         """
         intersection = (pred * target).sum(dim=(2, 3))
         union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
@@ -25,8 +25,8 @@ class JaccardLoss(nn.Module):
 
     def forward(self, target: torch.Tensor, pred: torch.Tensor):
         """
-        pred: softmax probabilities shape (B, C, W, H).
-        target: One-hot tensor of shape (B, C, W, H).
+            pred: softmax probabilities shape (B, 2, W, H).
+            target: One-hot tensor of shape (B, 2, W, H).
         """
         # Flatten spatial dimensions
         pred = pred.reshape(pred.shape[0], pred.shape[1], -1)

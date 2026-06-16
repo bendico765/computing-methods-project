@@ -32,7 +32,7 @@ class EarlyStopping:
             if self.counter >= self.patience:
                 self.early_stop = True
 
-def save_prediction(model, dataloader, epoch, device, output_dir, n_samples=3):
+def save_prediction(model, dataloader, loss_fn, epoch, device, output_dir, n_samples=3):
     model.eval()
 
     os.makedirs(output_dir, exist_ok=True)
@@ -53,6 +53,9 @@ def save_prediction(model, dataloader, epoch, device, output_dir, n_samples=3):
 
         fig, axes = plt.subplots(n, 3, figsize=(12, 4*n))
         for i in range(n): # iterate samples
+            # compute loss
+            loss = loss_fn(y[i].float().unsqueeze(0), pred_probs[i].unsqueeze(0)).item()
+
             # input image
             axes[i,0].imshow(X[i,0], cmap="gray")
             axes[i,0].set_title("Input")
@@ -65,7 +68,7 @@ def save_prediction(model, dataloader, epoch, device, output_dir, n_samples=3):
 
             # prediction
             axes[i,2].imshow(pred_probs[i,1], cmap="gray")
-            axes[i,2].set_title("Prediction")
+            axes[i,2].set_title(f"Prediction (Loss: {loss:.4f})")
             axes[i,2].axis("off")
 
         plt.tight_layout()

@@ -120,6 +120,7 @@ class Objective:
                 utils.save_prediction(
                     model,
                     self.validation_dataloader,
+                    loss_fn,
                     epoch,
                     self.device,
                     f"{self.trial_folder_filepath}/{trial.number}/figs/prediction_samples"

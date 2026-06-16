@@ -190,6 +190,7 @@ if args.test:
             utils.save_prediction(
                 model,
                 trainval_dataloader,
+                loss_fn,
                 epoch,
                 device,
                 f"{data_root_filepath}/runs/{run_name}/prediction_samples"
