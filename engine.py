@@ -61,13 +61,17 @@ class Objective:
                  train_dataloader: DataLoader, 
                  validation_dataloader: DataLoader, 
                  batch_size: int, 
-                 epochs: int, 
+                 epochs: int,
+                 patience: int,
+                 min_delta: float,
                  device: str):
         self.trial_folder_filepath = trial_folder_filepath
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
         self.batch_size = batch_size
         self.epochs = epochs
+        self.patience = patience
+        self.min_delta = min_delta
         self.device = device
         
     def __call__(self, trial):
@@ -92,7 +96,7 @@ class Objective:
         loss_fn = metrics.DiceLoss()
     
         # initializing early stopping
-        early_stopper = utils.EarlyStopping(patience=5, min_delta=0.001)
+        early_stopper = utils.EarlyStopping(patience=self.patience, min_delta=self.min_delta)
         
         ### Training and evaluating the model
         train_losses = []
