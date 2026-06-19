@@ -8,12 +8,12 @@ import visualization
 import utils
 
 def train_loop(
-        dataloader,
+        dataloader: torch.utils.data.DataLoader,
         model,
-        loss_fn,
-        optimizer,
-        batch_size,
-        device="cpu"
+        loss_fn: torch.Module,
+        optimizer: torch.optim.Optimizer,
+        batch_size: int,
+        device: torch.device = torch.device("cpu")
     ):
     model.train() # set the model to training mode
     
@@ -40,7 +40,12 @@ def train_loop(
 
     return total_loss/len(dataloader)
 
-def test_loop(dataloader, model, loss_fn, device="cpu"):
+def test_loop(
+        dataloader: torch.utils.data.DataLoader,
+        model,
+        loss_fn,
+        device: torch.device = torch.device("cpu")
+):
     model.eval() # set model to evaluation mode
     
     test_loss = 0
@@ -64,7 +69,7 @@ class Objective:
                  epochs: int,
                  patience: int,
                  min_delta: float,
-                 device: str):
+                 device: torch.device):
         self.trial_folder_filepath = trial_folder_filepath
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader

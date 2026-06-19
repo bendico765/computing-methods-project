@@ -5,6 +5,11 @@ import pandas as pd
 
 class CBIS_Dataset(Dataset):
     def __init__(self, data_root_filepath: str, df: pd.DataFrame, transform=None):
+        """
+        :param data_root_filepath: path to the main data folder
+        :param df: dataframe containing the filepaths to preprocessed tensors of the lesions
+        :param transform: transformation applied to the image and mask
+        """
         self.transform = transform
 
         self.image_paths = np.array([

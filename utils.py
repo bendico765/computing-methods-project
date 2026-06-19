@@ -3,12 +3,10 @@ import os
 import matplotlib.pyplot as plt
 
 class EarlyStopping:
-    def __init__(self, patience=5, min_delta=0):
+    def __init__(self, patience: int =5, min_delta: float=0):
         """
-        Args:
-            patience (int): How many epochs to wait after last time validation loss improved.
-            min_delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-            checkpoint_path (str): Path to save the best model weights.
+        :param patience: How many epochs to wait after last time validation loss improved.
+        :param min_delta: Minimum change in the monitored quantity to qualify as an improvement.
         """
         self.patience = patience
         self.min_delta = min_delta
@@ -29,7 +27,18 @@ class EarlyStopping:
             if self.counter >= self.patience:
                 self.early_stop = True
 
-def save_prediction(model, dataloader, loss_fn, epoch, device, output_dir, n_samples=3):
+def save_prediction(
+        model,
+        dataloader: torch.utils.data.DataLoader,
+        loss_fn: torch.nn.Module,
+        epoch: int,
+        device: torch.device,
+        output_dir: str,
+        n_samples: int =3
+):
+    """
+
+    """
     model.eval()
 
     os.makedirs(output_dir, exist_ok=True)
