@@ -17,13 +17,15 @@ If automatic hyperparameters optimization is performed, then the best model para
 ## Command line interface
 ```
 python3 data_folder_root_filepath main.py [-h] [--lr LR] [--n-trials N_TRIALS] [--batch-size BATCH_SIZE]
-[--epochs EPOCHS] [--patience PATIENCE] [--min-delta MIN_DELTA] [--random-state RANDOM_STATE]
+[--epochs EPOCHS] [--loss {dice,jaccard}] [--patience PATIENCE] [--min-delta MIN_DELTA] [--random-state RANDOM_STATE]
 [--enable-optimization] [--test]        
 ```
 
 The first positional argument ```data_folder_root_filepath``` is the path to the project data directory, containing the dataset tensors and the .csv file containing the metadata of the lesions. 
 
 ```--lr```, ```--batch-size``` and ```--epochs``` let the user specify the learning rate, the batch size and the maximum number of epochs for hyperparameter optimization and final retraining of the best model. 
+
+```loss``` allows to select the loss function to train the models, between Dice and Jaccard.
 
 ```--enable-optimization``` enables the search for best hyperparameters, using ```--n-trials``` as the number of trials to perform. 
 
