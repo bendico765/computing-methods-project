@@ -8,6 +8,7 @@ import engine
 import argparse
 import os
 import utils
+import albumentations as A
 from datetime import datetime
 import visualization
 
@@ -59,13 +60,11 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
 
 
 # defining transforms to augment data
-transforms = transforms_v2.Compose(
-    [
-        transforms_v2.RandomHorizontalFlip(),
-        transforms_v2.RandomVerticalFlip(),
-        transforms_v2.RandomRotation(degrees=(-270, 270))
-    ]
-)
+transforms = A.Compose([
+    A.HorizontalFlip(p=0.5),
+    A.VerticalFlip(p=0.5),
+    A.Rotate(limit=270, p=1.0)
+])
 
 # define loss
 loss_fn = metrics.DiceLoss() if loss=="dice" else metrics.JaccardLoss()
@@ -88,7 +87,6 @@ validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, transforms)
 train_dataloader = DataLoader(
     train_data,
     batch_size=batch_size,
-    shuffle=True,
     num_workers=4,
     pin_memory=True,
     persistent_workers=True
@@ -96,7 +94,6 @@ train_dataloader = DataLoader(
 validation_dataloader = DataLoader(
     validation_data,
     batch_size=batch_size,
-    shuffle=True,
     num_workers=4,
     pin_memory=True,
     persistent_workers=True

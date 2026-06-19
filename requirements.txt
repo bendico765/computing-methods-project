@@ -13,3 +13,4 @@ pydicom
 nibabel
 notebook
 optuna
+albumentations

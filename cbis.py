@@ -37,6 +37,18 @@ class CBIS_Dataset(Dataset):
         )
 
         if self.transform:
-            image, mask = self.transform(image, mask)
+            #image, mask = self.transform(image, mask)
+            # Conversion (C,H,W) -> (H,W,C)
+            image_np = image.permute(1, 2, 0).numpy()
+            mask_np = mask.permute(1, 2, 0).numpy()
+            
+            transformed = self.transform(
+                image = image_np,
+                mask = mask_np
+            )
 
+            # Conversion (H,W,C) -> (C,H,W)
+            image = torch.from_numpy(transformed["image"]).permute(2, 0, 1)
+            mask = torch.from_numpy(transformed["mask"]).permute(2, 0, 1)
+        
         return image, mask
