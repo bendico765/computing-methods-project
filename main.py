@@ -122,6 +122,8 @@ if enable_optimization:
             loss_fn,
             batch_size,
             epochs,
+            patience,
+            min_delta,
             device
         ),
         n_trials=n_trials,
