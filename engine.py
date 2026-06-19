@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
 import unet
-import metrics
 import os
 import pandas as pd
 import visualization
@@ -10,7 +9,7 @@ import utils
 def train_loop(
         dataloader: torch.utils.data.DataLoader,
         model,
-        loss_fn: torch.Module,
+        loss_fn: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         batch_size: int,
         device: torch.device = torch.device("cpu")

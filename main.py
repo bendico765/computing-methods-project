@@ -26,6 +26,7 @@ parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--n-trials", type=int, default=10, help="Number of trials for hyperparameter optimization")
 parser.add_argument("--batch-size", type=int, default=20, help="Batch size for training")
 parser.add_argument("--epochs", type=int, default=10, help="Number of epochs for hyperparameter optimization and to re-train the final model")
+parser.add_argument("--loss", type=str, choices=["dice", "jaccard"], default="dice", help="Loss function")
 parser.add_argument("--patience", type=int, default=5, help="Number of epochs patience for early stopping")
 parser.add_argument("--min-delta", type=float, default=1e-3, help="Minimum delta value for early stopping")
 parser.add_argument("--random-state", type=int, default=None, help="Random state used for loading up data")
@@ -42,6 +43,7 @@ learning_rate = args.lr
 n_trials = args.n_trials
 batch_size = args.batch_size
 epochs = args.epochs
+loss = args.loss
 patience = args.patience
 min_delta = args.min_delta
 random_state = args.random_state
@@ -66,7 +68,7 @@ transforms = transforms_v2.Compose(
 )
 
 # define loss
-loss_fn = metrics.DiceLoss()
+loss_fn = metrics.DiceLoss() if loss=="dice" else metrics.JaccardLoss()
 
 ### LOADING DATA
 df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
