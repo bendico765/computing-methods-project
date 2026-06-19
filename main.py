@@ -57,13 +57,16 @@ if not os.path.exists(f"{data_root_filepath}/runs/{run_name}"):
 
 
 # defining transforms to augment data
-train_transforms = validation_transforms = transforms_v2.Compose(
+transforms = transforms_v2.Compose(
     [
         transforms_v2.RandomHorizontalFlip(),
         transforms_v2.RandomVerticalFlip(),
         transforms_v2.RandomRotation(degrees=(-270, 270))
     ]
 )
+
+# define loss
+loss_fn = metrics.DiceLoss()
 
 ### LOADING DATA
 df = pd.read_csv(f"{data_root_filepath}/lesions.csv")
@@ -77,8 +80,8 @@ df_train_val, df_test = train_test_split(df, test_size=0.1,random_state=random_s
 # divide data in training and validation set
 df_train, df_val = train_test_split(df_train_val, test_size=0.22, random_state=random_state)
 
-train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, train_transforms)
-validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, validation_transforms)
+train_data = cbis.CBIS_Dataset(data_root_filepath, df_train, transforms)
+validation_data = cbis.CBIS_Dataset(data_root_filepath, df_val, transforms)
 
 train_dataloader = DataLoader(
     train_data,
@@ -117,6 +120,7 @@ if enable_optimization:
             f"{data_root_filepath}/runs/{run_name}/trials",
             train_dataloader,
             validation_dataloader,
+            loss_fn,
             batch_size,
             epochs,
             device
@@ -144,9 +148,6 @@ else:
         model.parameters(),
         lr=learning_rate
     )
-
-    # define loss
-    loss_fn = metrics.DiceLoss()
 
     # initializing early stopping
     early_stopper = utils.EarlyStopping(patience=patience, min_delta=min_delta)
@@ -259,7 +260,7 @@ del df_val
 
 ### RETRAIN THE BEST MODEL ON THE WHOLE DATASET AND TEST IT
 if args.test:
-    trainval_data = cbis.CBIS_Dataset(data_root_filepath, df_train_val, transform=train_transforms)
+    trainval_data = cbis.CBIS_Dataset(data_root_filepath, df_train_val, transform=transforms)
     test_data = cbis.CBIS_Dataset(data_root_filepath, df_test)
 
     trainval_dataloader = DataLoader(

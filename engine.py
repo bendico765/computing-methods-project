@@ -64,7 +64,8 @@ class Objective:
     def __init__(self, 
                  trial_folder_filepath: str,
                  train_dataloader: DataLoader, 
-                 validation_dataloader: DataLoader, 
+                 validation_dataloader: DataLoader,
+                 loss_fn: torch.nn.Module,
                  batch_size: int, 
                  epochs: int,
                  patience: int,
@@ -73,6 +74,7 @@ class Objective:
         self.trial_folder_filepath = trial_folder_filepath
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
+        self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.epochs = epochs
         self.patience = patience
@@ -98,7 +100,7 @@ class Objective:
         )
     
         # defining loss function
-        loss_fn = metrics.DiceLoss()
+        loss_fn = self.loss_fn
     
         # initializing early stopping
         early_stopper = utils.EarlyStopping(patience=self.patience, min_delta=self.min_delta)
