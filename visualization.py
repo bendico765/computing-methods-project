@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-def plot_losses(df: pd.DataFrame, figsize: tuple[int, int] =(8, 5), filepath=None):
+def plot_losses(df: pd.DataFrame, figsize: tuple[int, int] =(8, 5), validation=True, filepath=None):
     """
     Plot training and validation loss curves
     """
@@ -14,16 +14,17 @@ def plot_losses(df: pd.DataFrame, figsize: tuple[int, int] =(8, 5), filepath=Non
         marker="o"
     )
 
-    ax.plot(
-        df.index,
-        df["val_loss"],
-        label="Validation Loss",
-        marker="o"
-    )
+    if validation:
+        ax.plot(
+            df.index,
+            df["val_loss"],
+            label="Validation Loss",
+            marker="o"
+        )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
-    ax.set_title("Training and Validation Loss")
+    ax.set_title("Model Loss")
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.legend()
     fig.tight_layout()
