@@ -1,6 +1,7 @@
 import torch
 import os
 import matplotlib.pyplot as plt
+import metrics
 
 class EarlyStopping:
     def __init__(self, patience: int =5, min_delta: float=0):
@@ -48,11 +49,16 @@ def save_prediction(
 
         X = X.to(device)
         logits = model(X)
-        pred_probs = torch.softmax(logits, dim=1)
+        # pred_probs = torch.softmax(logits, dim=1)
+
+        if isinstance(loss_fn, metrics.DiceLoss) or isinstance(loss_fn, metrics.JaccardLoss):
+            preds = torch.softmax(logits, dim=1)
+        else:  # binary cross entropy
+            preds = torch.sigmoid(logits)
 
         X = X.to("cpu")
         y = y.to("cpu")
-        pred_probs = pred_probs.to("cpu")
+        preds = preds.to("cpu")
 
         # number of samples to show minimum between n_samples and batch_size
         n = min(n_samples, X.shape[0])
@@ -60,7 +66,7 @@ def save_prediction(
         fig, axes = plt.subplots(n, 3, figsize=(12, 4*n))
         for i in range(n): # iterate samples
             # compute loss
-            loss = loss_fn(y[i].float().unsqueeze(0), pred_probs[i].unsqueeze(0)).item()
+            loss = loss_fn(preds[i].unsqueeze(0), y[i].float().unsqueeze(0)).item()
 
             # input image
             axes[i,0].imshow(X[i,0], cmap="gray")
@@ -73,7 +79,7 @@ def save_prediction(
             axes[i,1].axis("off")
 
             # prediction
-            axes[i,2].imshow(pred_probs[i,1], cmap="gray")
+            axes[i,2].imshow(preds[i,1], cmap="gray")
             axes[i,2].set_title(f"Prediction (Loss: {loss:.4f})")
             axes[i,2].axis("off")
 

@@ -1,5 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
+
+import metrics
 import unet
 import os
 import pandas as pd
@@ -24,9 +26,14 @@ def train_loop(
         
         # compute prediction and loss
         logits = model(X)
-        pred_probs = torch.softmax(logits, dim=1)
-        loss = loss_fn(y.float(), pred_probs)
-        
+
+        if isinstance(loss_fn, metrics.DiceLoss) or isinstance(loss_fn, metrics.JaccardLoss):
+            preds = torch.softmax(logits, dim=1)
+        else: # binary cross entropy
+            preds = torch.sigmoid(logits)
+
+        loss = loss_fn(preds, (y>0).float())
+
         # backpropagation
         loss.backward() # backpropagate the prediction loss
         optimizer.step() # adjust the parameters by the gradients collected in the backward pass
@@ -54,9 +61,13 @@ def test_loop(
             y = y.to(device)
             
             logits = model(X)
-            pred_probs = torch.softmax(logits, dim=1)
-            test_loss += loss_fn(y.float(), pred_probs).item()
-    
+            if isinstance(loss_fn, metrics.DiceLoss) or isinstance(loss_fn, metrics.JaccardLoss):
+                preds = torch.softmax(logits, dim=1)
+            else:  # binary cross entropy
+                preds = torch.sigmoid(logits)
+
+            test_loss += loss_fn(preds, (y>0).float()).item()
+
     return test_loss / len(dataloader) # return average on the batches
 
 class Objective:

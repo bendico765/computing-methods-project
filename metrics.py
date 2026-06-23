@@ -6,10 +6,10 @@ class DiceLoss(nn.Module):
         super().__init__()
         self.smooth = smooth
 
-    def forward(self, target: torch.Tensor, pred: torch.Tensor):
+    def forward(self, pred: torch.Tensor, target: torch.Tensor):
         """
-        pred: softmax probabilities, shape (B, 2, W, H)
-        target: one-hot encoded masks, shape (B, 2, W, H)
+            pred: raw logits, shape (B, 2, W, H)
+            target: one-hot encoded masks, shape (B, 2, W, H)
         """
         intersection = (pred * target).sum(dim=(2, 3))
         union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
@@ -23,7 +23,7 @@ class JaccardLoss(nn.Module):
         super().__init__()
         self.smooth = smooth
 
-    def forward(self, target: torch.Tensor, pred: torch.Tensor):
+    def forward(self, pred: torch.Tensor, target: torch.Tensor):
         """
             pred: softmax probabilities shape (B, 2, W, H).
             target: One-hot tensor of shape (B, 2, W, H).
