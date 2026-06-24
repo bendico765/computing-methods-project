@@ -96,7 +96,7 @@ class Objective:
 
         # setting hyperparameters range of values
         learning_rate = trial.suggest_float("lr", 1e-3, 1e-1, log=True)
-        batch_size = trial.suggest_categorical("batch-size", [2, 4, 8, 16], log=True)
+        batch_size = trial.suggest_categorical("batch-size", [2, 4, 8, 16])
         
         # creating model
         model = unet.UNet(n_class=2)
