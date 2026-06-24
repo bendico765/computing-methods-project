@@ -76,7 +76,6 @@ class Objective:
                  train_dataloader: DataLoader, 
                  validation_dataloader: DataLoader,
                  loss_fn: torch.nn.Module,
-                 batch_size: int, 
                  epochs: int,
                  patience: int,
                  min_delta: float,
@@ -85,7 +84,6 @@ class Objective:
         self.train_dataloader = train_dataloader
         self.validation_dataloader = validation_dataloader
         self.loss_fn = loss_fn
-        self.batch_size = batch_size
         self.epochs = epochs
         self.patience = patience
         self.min_delta = min_delta
@@ -98,6 +96,7 @@ class Objective:
 
         # setting hyperparameters range of values
         learning_rate = trial.suggest_float("lr", 1e-3, 1e-1, log=True)
+        batch_size = trial.suggest_categorical("batch-size", [2, 4, 8, 16], log=True)
         
         # creating model
         model = unet.UNet(n_class=2)
@@ -127,7 +126,7 @@ class Objective:
                 model, 
                 loss_fn, 
                 optimizer, 
-                self.batch_size, 
+                batch_size,
                 self.device
             )
             train_losses.append(train_loss)
@@ -158,7 +157,7 @@ class Objective:
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "learning_rate": learning_rate,
-                "batch_size": self.batch_size,
+                "batch_size": batch_size,
                 "epochs": self.epochs,
                 "train_loss": train_loss,
                 "val_loss": val_loss
@@ -177,7 +176,7 @@ class Objective:
                     "epoch": epoch,
                     "model_state_dict": early_stopper.best_model_state_dict,
                     "learning_rate": learning_rate,
-                    "batch_size": self.batch_size,
+                    "batch_size": batch_size,
                     "epochs": self.epochs,
                     "val_loss": early_stopper.best_loss
                 },

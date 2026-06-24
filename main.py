@@ -125,7 +125,6 @@ if enable_optimization:
             train_dataloader,
             validation_dataloader,
             loss_fn,
-            batch_size,
             epochs,
             patience,
             min_delta,
@@ -140,6 +139,7 @@ if enable_optimization:
 
     # save up the best hyperparameters
     learning_rate = study.best_params["lr"]
+    batch_size = study.best_params["batch-size"]
     epochs = best_trial.user_attrs["epochs"]
 else:
     # just use train and validation set using the command line provided arguments
