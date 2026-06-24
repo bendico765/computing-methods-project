@@ -355,3 +355,14 @@ if args.test:
         device
     )
     print(f"Test loss={test_loss:.6f}", flush=True)
+
+    ### LOGGING ###
+    if not os.path.exists(f"{data_root_filepath}/runs/{run_name}/final_model/logs"):
+        os.makedirs(f"{data_root_filepath}/runs/{run_name}/final_model/logs")
+
+    # saving up the loss history
+    history = pd.DataFrame({
+        "epoch": range(1, epochs + 1),
+        "train_loss": train_losses
+    })
+    history.to_csv(f"{data_root_filepath}/runs/{run_name}/final_model/logs/loss_history.csv", index=False)
