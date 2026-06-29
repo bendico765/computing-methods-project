@@ -115,7 +115,7 @@ def preprocess_dataset(original_df: pd.DataFrame, data_root_filepath: str) -> pd
 
         fullimage_filepath = f"{data_root_filepath}/" + row["fullimage filepath"]
         roi_mask_filepath = f"{data_root_filepath}/" + row["roi filepath"]
-        preproc_fullimage_filepath = f"{data_root_filepath}/preprocessed_lesions/{patient_folder_name}/fullimage.pt"
+        preproc_fullimage_filepath = f"{data_root_filepath}/preprocessed_lesions/{patient_folder_name}/fullimage_{roi_index}.pt"
         preproc_mask_filepath = f"{data_root_filepath}/preprocessed_lesions/{patient_folder_name}/roi_{roi_index}.pt"
 
         # load up the dicom files
@@ -154,7 +154,7 @@ def preprocess_dataset(original_df: pd.DataFrame, data_root_filepath: str) -> pd
                 torch.save(preproc_tensor_mask, f)
 
         # save up the filepaths
-        preproc_image_filepaths.append(f"preprocessed_lesions/{patient_folder_name}/fullimage.pt")
+        preproc_image_filepaths.append(f"preprocessed_lesions/{patient_folder_name}/fullimage_{roi_index}.pt")
         preproc_masks_filepaths.append(f"preprocessed_lesions/{patient_folder_name}/roi_{roi_index}.pt")
 
     df["preprocessed fullimage tensor filepath"] = preproc_image_filepaths
